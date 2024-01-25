@@ -1,0 +1,58 @@
+
+Copy code
+Imports Autodesk.AutoCAD.Runtime
+Imports Autodesk.AutoCAD.ApplicationServices
+Imports Autodesk.AutoCAD.DatabaseServices
+Imports Autodesk.AutoCAD.Geometry
+Imports System.IO
+
+Public Class PipeNetworkCommands
+    ' ... [Previous ExportPipesToCSV command here] ...
+
+    <CommandMethod("ImportCSVCreate3DPolyline")>
+    Public Sub ImportCSVCreate3DPolyline()
+        Dim doc As Document = Application.DocumentManager.MdiActiveDocument
+        Dim db As Database = doc.Database
+        Dim ed As Editor = doc.Editor
+
+        ' Specify the file path for the CSV
+        Dim csvFilePath As String = Path.Combine(Path.GetDirectoryName(doc.Name), "temp.csv")
+
+        ' Check if the file exists
+        If Not File.Exists(csvFilePath) Then
+            ed.WriteMessage("Error: File not found - " & csvFilePath)
+            Return
+        End If
+
+        ' Start a transaction
+        Using tr As Transaction = db.TransactionManager.StartTransaction()
+            Dim bt As BlockTable = tr.GetObject(db.BlockTableId, OpenMode.ForRead)
+            Dim btr As BlockTableRecord = tr.GetObject(bt(BlockTableRecord.ModelSpace), OpenMode.ForWrite)
+
+            ' Read the CSV file
+            Using reader As New StreamReader(csvFilePath)
+                reader.ReadLine() ' Skip header line
+
+                While Not reader.EndOfStream
+                    Dim line As String = reader.ReadLine()
+                    Dim values As String() = line.Split(","c)
+
+                    ' Assuming each line has 7 values: PipeName, StartX, StartY, StartZ, EndX, EndY, EndZ
+                    If values.Length >= 7 Then
+                        Dim startPoint As New Point3d(Double.Parse(values(1)), Double.Parse(values(2)), Double.Parse(values(3)))
+                        Dim endPoint As New Point3d(Double.Parse(values(4)), Double.Parse(values(5)), Double.Parse(values(6)))
+
+                        ' Create a 3D polyline
+                        Dim poly As New Polyline3d(Poly3dType.SimplePoly, New Point3dCollection({startPoint, endPoint}), False)
+                        btr.AppendEntity(poly)
+                        tr.AddNewlyCreatedDBObject(poly, True)
+                    End If
+                End While
+            End Using
+
+            tr.Commit()
+        End Using
+
+        ed.WriteMessage("Imported CSV and created 3D polylines.")
+    End Sub
+End Class

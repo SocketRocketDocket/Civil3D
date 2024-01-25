@@ -1,0 +1,66 @@
+Imports Autodesk.AutoCAD.Runtime
+Imports Autodesk.Civil.ApplicationServices
+Imports Autodesk.AutoCAD.ApplicationServices
+Imports Autodesk.AutoCAD.DatabaseServices
+Imports Autodesk.Civil.DatabaseServices
+Imports System.IO
+
+Public Class PipeNetworkCommands
+    <CommandMethod("ExportPipesToCSV")>
+    Public Sub ExportPipesToCSV()
+        Dim doc As Document = Application.DocumentManager.MdiActiveDocument
+        Dim db As Database = doc.Database
+        Dim ed As Editor = doc.Editor
+
+        ' Specify the file path for the CSV
+        Dim csvFilePath As String = Path.Combine(Path.GetDirectoryName(doc.Name), "temp.csv")
+
+        ' Start a transaction
+        Using tr As Transaction = db.TransactionManager.StartTransaction()
+            Dim civildoc As CivilDocument = CivilApplication.ActiveDocument
+
+            ' Create a StreamWriter to write to the CSV file
+            Using writer As StreamWriter = New StreamWriter(csvFilePath, False) ' False to overwrite existing file
+                writer.WriteLine("PipeName,StartX,StartY,StartZ,EndX,EndY,EndZ") ' Header
+
+                ' Assuming there's at least one pipe network
+                For Each networkId In civildoc.GetPipeNetworkIds()
+                    Dim network As PipeNetwork = tr.GetObject(networkId, OpenMode.ForRead)
+                    For Each pipeId In network.GetPipeIds()
+                        Dim pipe As Pipe = tr.GetObject(pipeId, OpenMode.ForRead)
+
+                        ' Get start and end points of the pipe
+                        Dim startPoint As Point3d = pipe.StartPoint
+                        Dim endPoint As Point3d = pipe.EndPoint
+
+                        ' Write the pipe name and points data to the CSV file
+                        writer.WriteLine($"{pipe.Name},{startPoint.X},{startPoint.Y},{startPoint.Z},{endPoint.X},{endPoint.Y},{endPoint.Z}")
+                    Next
+                Next
+            End Using
+
+            tr.Commit()
+        End Using
+
+        ed.WriteMessage($"Exported pipe data to {csvFilePath}")
+    End Sub
+End Class
+In this code:
+
+We use StreamWriter to write to a CSV file.
+Each pipe's name and its start and end points' coordinates (X, Y, Z) are written as a line in the CSV file.
+The CSV file is created in the same directory as the Civil 3D drawing file. The filename is temp.csv.
+To use this code, follow the same steps as before to integrate it into Civil 3D:
+
+Create a new Class Library project in VB.NET in Visual Studio.
+Add references to the required AutoCAD and Civil 3D .NET assemblies.
+Add this code to a class file in your project.
+Compile the project to generate a DLL.
+Load the DLL into Civil 3D using the NETLOAD command and run the ExportPipesToCSV command.
+This will generate a temp.csv file in the directory of your Civil 3D drawing, containing the exported pipe data.
+
+
+
+
+
+
